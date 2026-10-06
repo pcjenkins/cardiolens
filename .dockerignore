@@ -1,0 +1,10 @@
+node_modules
+.next
+coverage
+data/*.db*
+data/release
+.env
+.env.local
+*.bat
+*.log
+.git

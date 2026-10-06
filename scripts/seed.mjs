@@ -10,13 +10,13 @@ import bcrypt from "bcryptjs";
 
 const root = process.cwd();
 const dataDir = path.join(root, "data");
-const dbPath = path.join(dataDir, "cardiolens.db");
-if (!existsSync(dataDir)) mkdirSync(dataDir);
+const dbPath = process.env.DB_PATH ?? path.join(dataDir, "cardiolens.db");
+if (!existsSync(path.dirname(dbPath))) mkdirSync(path.dirname(dbPath), { recursive: true });
 
 // ---- session secret: generated once, kept in .env.local (never committed) ----
 const envPath = path.join(root, ".env.local");
 const env = existsSync(envPath) ? readFileSync(envPath, "utf8") : "";
-if (!/^SESSION_SECRET=/m.test(env)) {
+if (!process.env.SESSION_SECRET && !/^SESSION_SECRET=/m.test(env)) {
   writeFileSync(envPath, env + `SESSION_SECRET=${randomBytes(32).toString("hex")}\n`);
   console.log("Created .env.local with a random SESSION_SECRET");
 }

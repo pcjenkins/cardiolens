@@ -5,8 +5,10 @@ import path from "node:path";
 // One connection per server process. SQLite is a single file: data/cardiolens.db
 const globalForDb = globalThis as unknown as { db?: DatabaseSync };
 
-export const db =
-  globalForDb.db ?? new DatabaseSync(path.join(process.cwd(), "data", "cardiolens.db"));
+// DB_PATH lets Docker keep the database on a volume; locally it defaults to data/cardiolens.db
+export const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), "data", "cardiolens.db");
+
+export const db = globalForDb.db ?? new DatabaseSync(DB_PATH);
 
 if (process.env.NODE_ENV !== "production") globalForDb.db = db; // survive dev hot-reloads
 
