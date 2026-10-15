@@ -1,140 +1,86 @@
 # CardioLens
 
-A case-analytics app for cardiac surgery perfusion data: per-second device data from the heart-lung machine and patient monitor, the location and device hierarchy behind it, maintenance schedules, and the reports clinicians use for quality review. Everything in it is made up: the health system, hospitals, staff, patients, devices and the 7 million samples.
+A hobby project I built to get hands-on with a full-stack JavaScript setup before an interview: Next.js and React on the front, a GraphQL API in the middle, and PostgreSQL underneath. I wanted a realistic problem rather than a to-do list, so it's a small analytics app for cardiac surgery perfusion data (the heart-lung machine readings recorded during bypass surgery).
 
-It runs as a four-tier stack:
+Everything in it is made up: the hospitals, staff, patients, devices and data. Nothing here is medical advice or a real clinical tool.
+
+## What it does
+
+* Logs you in and shows a dashboard of bypass times, with a simple trend line and outlier cases.
+* Shows each case's perfusion record as charts. Click a chart to zoom from one-minute averages down to the raw one-second readings.
+* Tracks devices: where each machine is, its maintenance schedule, and whether its maintenance was current when it recorded a case.
+* Answers a few report-style questions, such as "which cases used this disposable lot?"
+
+## How it's put together
 
 ```
-Browser ──► Next.js (App Router)  ──GraphQL──►  Express + Apollo Server  ──SQL──►  PostgreSQL
-            tier 2: UI, sessions,                tier 3: business rules,           tier 4: schema, time-sharded raw data,
-            server components,                   authorization per field,          maintained aggregates, SQL functions
-            server actions                       DataLoader batching
+Browser ──► Next.js  ──GraphQL──►  Express + Apollo  ──SQL──►  PostgreSQL
 ```
 
-The browser only ever talks to Next.js. Next.js is the GraphQL client, from its server components and server actions; it holds no database driver and never sees a password hash. The data service owns the rules, and Postgres owns the data and the logic that belongs next to it (ingest, rollups, phase statistics, episode detection, the JSON case report).
+* **Next.js** renders the pages on the server and handles login. It never talks to the database directly; it asks the API.
+* **The API** (Express with Apollo Server) holds the business rules and checks permissions on every request.
+* **PostgreSQL** holds the data, plus some of the logic that's easier to do next to the data: rolling raw readings up into minute, hour and day summaries, and finding stretches where a reading stayed below a target.
 
-## Running it (macOS)
+The pieces I spent the most time on:
 
-You need **Node.js 22+** and **PostgreSQL 16+**. [Postgres.app](https://postgresapp.com) is the easiest; put its tools on your PATH once:
+* **Lots of small readings.** About 7 million one-second samples across 40 cases. Raw data goes into a table split by month, and summaries are kept up to date as data comes in, so charts read the summaries and only fall back to raw data when you zoom in.
+* **Hierarchies.** Hospital › building › floor › room › device, with a history of where each device has been. The database itself prevents a device from being in two rooms at once.
+* **The API boundary.** Logins, permission checks, and limits on how much a single GraphQL query can ask for.
+
+There's an entity-relationship diagram of the database in [docs/ERD.md](docs/ERD.md).
+
+## Running it (Mac)
+
+You need **Node.js 22 or newer** and **PostgreSQL 16 or newer**. [Postgres.app](https://postgresapp.com) is the easiest way to get Postgres. Put its command-line tools on your PATH once:
 
 ```bash
 sudo mkdir -p /etc/paths.d && echo /Applications/Postgres.app/Contents/Versions/latest/bin | sudo tee /etc/paths.d/postgresapp
 ```
 
-Then, in a new terminal:
+Then, in a new terminal, from this folder:
 
 ```bash
 psql -c "CREATE ROLE cardiolens LOGIN PASSWORD 'cardiolens';"
 createdb -O cardiolens cardiolens
 
-npm install            # web + API packages (the API installs via postinstall)
-npm run db:reset       # build the schema and generate the data (~2 minutes)
-                       #   or: npm run db:restore   load a pre-built dump, if you have api/db/cardiolens.dump
-npm run stack          # API on :4000 and web on :3000, together
+npm install          # installs the web app and the API
+npm run db:reset     # creates the tables and generates the demo data (about 2 minutes)
+npm run stack        # starts the API and the web app together
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000 and sign in with:
 
-* `demo@cardiolens.test` / `Demo123!` (clinician)
-* `admin@cardiolens.test` / `Admin123!` (admin; also sees Admin)
+* `demo@cardiolens.test` / `Demo123!`
+* `admin@cardiolens.test` / `Admin123!` (also sees the Admin page)
 
-`.env.local` is created on first run with a random session secret and service key. The API's Apollo Sandbox is at http://127.0.0.1:4000/graphql in development; its requests need an `Authorization: Bearer <session cookie value>` header.
+Other commands:
 
 | Command | What it does |
 | --- | --- |
-| `npm run stack` | API + web in dev mode, hot reload |
-| `npm run db:reset` | Drop and rebuild the `cardiolens` schema and generate the data. `SEED_CAPTURED_CASES=all` captures every case (~30M rows) |
-| `npm run db:restore` | Restore a pre-built `api/db/cardiolens.dump` (not committed; data as of the dump date) |
-| `npm run build` / `npm run start:stack` | Test-gated production build, then run it |
-| `npm run test:all` | API tests (node:test, against the database) + web tests (Jest + RTL) |
+| `npm run test:all` | Runs the API tests (against the database) and the web tests |
+| `npm run build` then `npm run start:stack` | Production build (runs the tests first) and starts it |
+| `npm run db:erd` | Regenerates the ERD from the database |
 
-Windows: `setup.bat`, `dev.bat`, `start.bat`, `release.bat`, `test.bat` do the same.
+Windows users can use `setup.bat`, `dev.bat` and `start.bat`. There's also a `docker-compose.yml`, but I haven't run it yet; the steps above are the tested path.
 
-Docker: `docker compose up --build` runs Postgres, the API and the web app, with only the web port published. Put `SESSION_SECRET` and `SERVICE_KEY` in `.env` first (see `docker-compose.yml`). The compose files were written for this version but not run here; the native setup above is the tested path.
+## Where to look
 
-## The data model
-
-`api/db/schema.sql`: 40 tables in six groups (plus the monthly partitions). **[docs/ERD.md](docs/ERD.md)** has the entity-relationship diagrams, an overview plus one per group, generated from the live schema by `npm run db:erd`.
-
-* **Organisation hierarchy:** health system › facility › location › room. `location` references itself, so buildings, floors, suites and units nest to any depth; `v_location_path` walks it with a recursive CTE.
-* **Clinical:** patient › encounter › surgical case, with staff roles, milestone events (CPB on/off, cross-clamp, cardioplegia, rewarm…), point-of-care labs, transfusions and disposables with lot numbers. Body surface area is a generated column.
-* **Devices and provenance:** manufacturer › device model › device › modules (sensor hub, Hb/SO2 sensors, gas blender, ventilation diagnostics, pump drive), with firmware, software install history, and `device_assignment`, which records where each device was and when. An **exclusion constraint** (`EXCLUDE USING gist (device_id WITH =, during WITH &&)`) makes it impossible for a device to be in two rooms at once.
-* **Maintenance:** plans per model, triggered by time, running hours, or whichever comes first; tasks; work orders with per-task results; `v_maintenance_status` computes current / due soon / in grace / overdue.
-* **Capture:** a `recording_session` is one device's stream for one case, and freezes provenance at capture time: software version, clock offset, gateway, and whether the device's maintenance was current. Alarms (limit in effect, acknowledgement time), setting changes and emboli detections hang off the session.
-* **Raw data and aggregates:** below.
-
-### Raw samples and time shards
-
-`raw_sample` is one row per channel per sample: 22 channels at 1 Hz (pressures, flows, temperatures, SaO2/SvO2/Hb, gases, and device-calculated indices such as DO2i). Each sample carries a quality flag (valid, artifact, sensor off, line flush), so a line flush is a gap in the chart, not a spike in the average. The table is **range-partitioned by month**, with a BRIN index per partition; an old month can be detached and archived without a bulk delete. The bubble detector's 2,500 Hz signal is stored as detected events, not as samples.
-
-### Maintained aggregates
-
-`agg_minute`, `agg_hour` and `agg_day` store **mergeable** statistics per bucket: count, sum, sum of squares, min/max (and when), first/last, and seconds below/above the channel's limits. Averages and standard deviations combine exactly, so an hour is built from its minutes and a day from its hours, never from raw data again.
-
-* `ingest_samples()` writes a batch and folds it into the minute buckets **in the same statement** (`INSERT … ON CONFLICT DO NOTHING RETURNING` → aggregate only what was inserted → upsert). That makes ingest idempotent: resending a batch changes nothing.
-* Touched hours and days are queued in `agg_dirty`; `rollup_dirty()` drains the queue. It is safe to run any number of times.
-* The seed goes through this same path. The tests prove every grain reconciles exactly to the raw count.
-
-Percentiles can't be merged, so `refresh_case_phase()` computes per-phase statistics (pre-bypass, bypass, full-flow, cross-clamp, rewarming, post-bypass) once per case, including exact `percentile_cont` medians.
-
-### SQL worth looking at
-
-| Where | What |
+| File | What's there |
 | --- | --- |
-| `functions.sql` `ingest_samples` | Data-modifying CTE chain: insert, aggregate the inserted rows, upsert with merge logic, queue parents |
-| `functions.sql` `threshold_episodes` | Gaps and islands: continuous runs of DO2i < 280 or MAP < 50, using `index − row_number()` |
-| `functions.sql` `refresh_session_maintenance` | `LATERAL` "last passing work order before this session" per plan, rolled up with `bool_and` |
-| `views.sql` `v_case` | Milestone pivot with `FILTER`, several `LATERAL` joins, legacy JSONB fallback |
-| `views.sql` `case_report` | The whole case as one JSON document built in the database (`jsonb_build_object` / `jsonb_agg`) |
-| `api/src/resolvers.ts` `series` | `generate_series` gap-filled grid + `date_bin` re-binning of the aggregates |
-| `api/src/resolvers.ts` `perfusionQuality` | `percentile_cont … FILTER` per perfusionist from the phase aggregates |
-
-## The data
-
-The seed simulates each case second by second from the physiology: oxygen content and delivery (CaO2, DO2i), temperature-dependent oxygen demand, venous saturation from the O2 balance, hemodilution and transfusion, cooling and rewarming, CO2 removal against sweep gas, hypotensive episodes, line flushes, sensor artifacts and emboli. Perfusionists differ in style, which shows up in the goal-directed perfusion table on the dashboard.
-
-The 40 most recent cases have full per-second capture. Older cases are "legacy imports": a case-level summary migrated from an earlier system, with no waveforms. That is the realistic situation after a platform migration, and the UI handles both.
-
-## The GraphQL API
-
-`api/src/schema.graphql` is the contract. Highlights:
-
-* `case.series(channels, from, to, resolution, maxPoints)` picks raw seconds, or minute/hour/day aggregates re-binned to fit, so a chart never pulls more points than it can draw. An explicit `RAW` request that would exceed the budget is refused rather than truncated.
-* `case.quality`, `room.devices`, `location.rooms` and the rest are resolved through per-request **DataLoaders**: a list of 100 cases asking for quality costs one query, not 100.
-* `case.report` returns the database-built JSON document; `disposableRecall(lot)` answers "which cases used this oxygenator lot".
-
-```graphql
-{
-  case(id: 262) {
-    procedure
-    quality { do2iNadir pctTimeDo2iBelowTarget svo2Nadir }
-    series(channels: ["DO2I", "MAP"], resolution: AUTO) { resolution stepSeconds channels { points { t avg min max } } }
-    sessions { device { assetTag } softwareVersion maintenanceOk maintenanceNote }
-  }
-}
-```
-
-## Security
-
-* **Sessions** are a signed JWT in an `HttpOnly`, `SameSite=Lax` cookie (`Secure` in production).
-* **Auth is checked at every tier.** `proxy.ts` turns anonymous requests away early, every page re-verifies the session (`lib/dal.ts`), and the API verifies the forwarded token and authorizes in each resolver. Admin data is checked by role in both tiers.
-* **Login** goes web tier → API `authenticate` mutation, which only accepts calls carrying the service key (compared in constant time). A wrong password and an unknown email produce the same message and the same timing.
-* **GraphQL hardening:** query depth limit (validated before execution), point budgets on series, introspection and the sandbox off in production, unexpected errors masked to the client and logged on the server, a per-statement timeout on the database pool.
-* **Input:** zod on login; channel codes, procedures and IDs checked against allow-lists; LIKE wildcards escaped; SQL uses `$n` parameters only.
-* **Redirects** after login only go to local paths (`lib/safe-redirect.ts`, with tests for each bypass).
-* **Network:** the API binds to 127.0.0.1 by default; in Docker only the web port is published.
+| `api/db/schema.sql` | The tables |
+| `api/db/functions.sql` | Data loading, summary rollups, "time below target" detection |
+| `api/db/views.sql` | Case summaries and maintenance status |
+| `api/src/schema.graphql` | The API contract |
+| `api/src/resolvers.ts` | How each API field gets its data |
+| `app/(app)/` | The pages |
 
 ## Tests
 
-* **API (node:test, 20 tests):** physiology formulas, the series planner, the depth limit, simulator determinism and quality flags, alarm detection; then, against the real database inside rolled-back transactions: aggregate reconciliation at every grain, idempotent ingest with a minute split across batches, the exclusion constraint, episodes, maintenance-at-capture, the JSON report, and GraphQL auth, admin-only fields, point budgets and DataLoader batching.
-* **Web (Jest + React Testing Library, 30 tests):** the analytics model, the redirect guard, display helpers (including hostile channel input), the procedure filter and the series controls, with the Next.js router mocked.
+About 50 tests between the two halves. The API tests check the calculations and run against the real database inside transactions that get rolled back, so they don't change the demo data. The web tests use Jest and React Testing Library.
 
-`npm run build` runs the web suite first; if a test fails, the build never starts. Results and coverage are written to `data/release/`, and **Admin → Release test results** displays them.
+## Things I'd do next
 
-## Known gaps
-
-* No end-to-end browser tests in the repo yet (Playwright against the running stack is next).
-* GraphQL result types in the web tier are hand-written; GraphQL Code Generator would derive them from the schema.
-* Sessions are stateless JWTs: a role change applies at next sign-in, and sign-out doesn't revoke a copied token before it expires (8 h). Production would use SSO (SAML/OIDC) with short-lived tokens or server-side sessions.
-* The phase statistics refresh is per case after capture; a live system would trigger it from the CPB-off event.
-* Day buckets are UTC days; facility-local reporting days would bucket in the facility's time zone.
+* End-to-end browser tests (Playwright).
+* Generate the TypeScript types from the GraphQL schema instead of writing them by hand.
+* Use a real single sign-on provider instead of the built-in demo logins.
+* Try the Docker setup end to end.
