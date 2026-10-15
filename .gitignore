@@ -1,7 +1,10 @@
 node_modules/
+api/node_modules/
 .next/
-data/*.db*
 .env.local
-coverage/
 .env
+coverage/
 data/release
+*.log
+tsconfig.tsbuildinfo
+*.dump

@@ -1,25 +1,47 @@
+# The whole stack in containers: Postgres (tier 4) <- GraphQL API (tier 3) <- Next.js (tier 2) <- browser.
 # Usage:
-#   1. Create a .env file next to this one containing:  SESSION_SECRET=<64 random hex characters>
-#   2. docker compose up --build
-#   3. Open http://localhost:3000   (demo@cardiolens.test / Demo123!  or  admin@cardiolens.test / Admin123!)
+#   1. Create a .env file next to this one with:
+#        SESSION_SECRET=<64 random hex characters>
+#        SERVICE_KEY=<48 random hex characters>
+#   2. docker compose up --build        (first start seeds the database, ~2 minutes)
+#   3. Open http://localhost:3000       (demo@cardiolens.test / Demo123!  or  admin@cardiolens.test / Admin123!)
+# Only the web tier is published; the API and database are reachable only inside the compose network.
 services:
-  app:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: cardiolens
+      POSTGRES_PASSWORD: cardiolens
+      POSTGRES_DB: cardiolens
+    volumes:
+      - cardiolens-pg:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardiolens"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build: { context: ., dockerfile: api/Dockerfile }
+    environment:
+      DATABASE_URL: postgres://cardiolens:cardiolens@db:5432/cardiolens
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      SERVICE_KEY: ${SERVICE_KEY:?Set SERVICE_KEY in .env}
+    depends_on:
+      db: { condition: service_healthy }
+    restart: unless-stopped
+
+  web:
     build: .
     image: cardiolens:latest
     ports:
       - "3000:3000"
     environment:
-      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env (see docker-compose.yml)}
-      DB_PATH: /app/db/cardiolens.db
-    volumes:
-      - cardiolens-db:/app/db          # database survives rebuilds and restarts
+      API_URL: http://api:4000/graphql
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      SERVICE_KEY: ${SERVICE_KEY:?Set SERVICE_KEY in .env}
+    depends_on: [api]
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
 
 volumes:
-  cardiolens-db:
+  cardiolens-pg:

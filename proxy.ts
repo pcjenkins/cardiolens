@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { decrypt, SESSION_COOKIE } from "@/lib/token";
 
 // Fast first gate: bounce anonymous users before a protected page renders.
-// Not the only check - lib/dal.ts verifySession() re-checks wherever data is read.
-const PROTECTED = ["/dashboard", "/cases", "/api"];
+// Not the only check - lib/dal.ts verifySession() re-checks wherever data is read, and the GraphQL API
+// verifies the forwarded token on every request.
+const PROTECTED = ["/dashboard", "/cases", "/devices", "/admin", "/api"];
 
 export async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;

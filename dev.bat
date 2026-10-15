@@ -1,5 +1,5 @@
 @echo off
-REM Development mode: edits to files reload instantly in the browser at http://localhost:3000
+REM Development mode: runs the data API and the web app together; edits reload instantly.
 cd /d "%~dp0"
 start "" http://localhost:3000
-call npm run dev
+call npm run stack

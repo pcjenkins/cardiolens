@@ -7,5 +7,8 @@ export default createJestConfig({
   testEnvironment: "jsdom",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   moduleNameMapper: { "^@/(.*)$": "<rootDir>/$1" },
-  collectCoverageFrom: ["lib/analytics.ts", "lib/safe-redirect.ts", "components/**/*.tsx"],
+  // The data API (./api) is its own package with its own test runner (node:test).
+  testPathIgnorePatterns: ["<rootDir>/node_modules/", "<rootDir>/api/"],
+  modulePathIgnorePatterns: ["<rootDir>/api/"],
+  collectCoverageFrom: ["lib/analytics.ts", "lib/safe-redirect.ts", "lib/format.ts", "components/**/*.tsx"],
 });

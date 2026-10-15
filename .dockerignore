@@ -1,10 +1,11 @@
 node_modules
+api/node_modules
 .next
 coverage
-data/*.db*
 data/release
 .env
 .env.local
 *.bat
 *.log
+*.dump
 .git

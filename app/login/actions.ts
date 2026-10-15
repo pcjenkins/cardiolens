@@ -1,9 +1,8 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { queryOne } from "@/lib/db";
+import { ApiError, gqlService } from "@/lib/api";
 import { createSession, deleteSession } from "@/lib/session";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 
@@ -15,7 +14,11 @@ const LoginSchema = z.object({
 
 export type LoginState = { error?: string; email?: string } | undefined;
 
-type UserRow = { id: number; name: string; role: "clinician" | "admin"; password_hash: string };
+type AuthResult = { authenticate: { user: { id: string; name: string; role: "clinician" | "admin" } | null; error: string | null } };
+
+const AUTHENTICATE = `mutation Authenticate($email: String!, $password: String!) {
+  authenticate(email: $email, password: $password) { user { id name role } error }
+}`;
 
 // Server actions are public POST endpoints: validate everything, trust nothing from the client.
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
@@ -25,13 +28,18 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   }
   const { email, password, next } = parsed.data;
 
-  const user = queryOne<UserRow>("SELECT id, name, role, password_hash FROM users WHERE email = ?", email);
-  // Same message whether the email or the password is wrong - don't reveal which accounts exist.
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-    return { error: "Invalid email or password", email };
+  // The password check happens in the data tier (which holds the hashes); this tier never sees a hash.
+  let result: AuthResult;
+  try {
+    result = await gqlService<AuthResult>(AUTHENTICATE, { email, password });
+  } catch (e) {
+    return { error: e instanceof ApiError && e.code === "UNAVAILABLE" ? "Sign-in is unavailable: the data service is not running." : "Sign-in failed. Try again.", email };
   }
+  const user = result.authenticate.user;
+  // Same message whether the email or the password is wrong - don't reveal which accounts exist.
+  if (!user) return { error: "Invalid email or password", email };
 
-  await createSession({ userId: user.id, name: user.name, role: user.role });
+  await createSession({ userId: Number(user.id), name: user.name, role: user.role });
   redirect(safeRedirectPath(next));
 }
 

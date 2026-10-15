@@ -1,0 +1,260 @@
+"""
+CardioLens data service. The web tier (Next.js) is the only intended client: it authenticates users,
+then calls this API with the user's signed session token. Every resolver authorizes on its own.
+"""
+scalar DateTime
+scalar JSON
+
+enum Resolution { AUTO RAW MINUTE HOUR DAY }
+enum Phase { PRE_CPB CPB FULL_FLOW CROSS_CLAMP REWARM POST_CPB }
+enum MaintenanceStatus { CURRENT DUE_SOON IN_GRACE OVERDUE }
+enum Direction { BELOW ABOVE }
+
+type Query {
+  me: User!
+  procedures: [String!]!
+  channels: [Channel!]!
+
+  dashboard(procedure: String): Dashboard!
+  cases(filter: CaseFilter, limit: Int = 100): [Case!]!
+  case(id: ID!): Case
+
+  facilities: [Facility!]!
+  devices(facilityId: ID): [Device!]!
+  device(id: ID!): Device
+  maintenance(status: [MaintenanceStatus!]): [MaintenanceItem!]!
+
+  "Every case that used a given disposable lot: the recall question."
+  disposableRecall(lot: String!): [Case!]!
+  "Admin only: partitions, aggregate tables, ingest backlog."
+  dataVolume: DataVolume!
+}
+
+type Mutation {
+  "Service-to-service only (web tier, with the service key). Returns the user if the credentials are valid."
+  authenticate(email: String!, password: String!): AuthResult!
+}
+
+type AuthResult { user: User, error: String }
+type User { id: ID!, email: String!, name: String!, role: String! }
+
+input CaseFilter {
+  procedure: String
+  surgeon: String
+  facilityId: ID
+  perfusionistId: ID
+  capturedOnly: Boolean
+}
+
+# ------------------------------------------------------------------ dashboard
+
+type Dashboard {
+  kpis: Kpis!
+  weekly: [WeeklyPoint!]!
+  bypassByCase: [CaseBypass!]!
+  perfusionQuality: [PerfusionistQuality!]!
+}
+type Kpis { cases: Int!, capturedCases: Int!, avgBypassMin: Float, avgLosDays: Float, complicationRate: Float }
+type WeeklyPoint { week: String!, mean: Float!, cases: Int! }
+type CaseBypass { id: ID!, caseDate: String!, procedure: String!, surgeon: String!, bypassMin: Int! }
+"Goal-directed perfusion metrics per perfusionist, over full-flow bypass of captured cases."
+type PerfusionistQuality {
+  perfusionist: Staff!
+  cases: Int!
+  medianDo2i: Float
+  pctTimeDo2iBelowTarget: Float
+  pctTimeMapBelow50: Float
+  pctTimeArterialAbove37: Float
+}
+
+# ------------------------------------------------------------------ cases
+
+type Case {
+  id: ID!
+  caseDate: String!
+  procedure: String!
+  "live_capture (per-second device data) or legacy_import (case summary only)"
+  source: String!
+  surgeon: Staff
+  perfusionist: Staff
+  facility: String!
+  room: String!
+  locationPath: String!
+  patient: PatientSummary!
+  bypassMin: Int
+  crossClampMin: Int
+  lowestTempC: Float
+  bloodUnits: Int!
+  losDays: Int
+  outcome: String
+
+  events: [CaseEvent!]!
+  labs: [LabResult!]!
+  sessions: [RecordingSession!]!
+  phases(channels: [String!]): [PhaseStat!]!
+  phaseWindows: [PhaseWindow!]!
+  quality: CaseQuality
+  episodes(channel: String!, direction: Direction = BELOW, limit: Float, minSeconds: Int = 10, phase: Phase = FULL_FLOW): [Episode!]!
+  series(channels: [String!]!, from: DateTime, to: DateTime, resolution: Resolution = AUTO, maxPoints: Int = 1500): Series!
+  alarms: [Alarm!]!
+  settingChanges: [SettingChange!]!
+  emboli: EmboliSummary!
+  disposables: [DisposableUse!]!
+  "The whole case as one JSON document, assembled by the database (case_report())."
+  report: JSON!
+}
+
+"De-identified for display: no name or date of birth."
+type PatientSummary { mrn: String!, age: Int!, sex: String!, bsaM2: Float! }
+type Staff { id: ID!, name: String! }
+type CaseEvent { ts: DateTime!, type: String!, detail: JSON }
+type LabResult { ts: DateTime!, test: String!, value: Float!, unit: String! }
+type PhaseWindow { phase: Phase!, start: DateTime!, end: DateTime! }
+
+type PhaseStat {
+  phase: Phase!
+  channel: Channel!
+  start: DateTime!
+  end: DateTime!
+  avg: Float
+  min: Float
+  minAt: DateTime
+  max: Float
+  maxAt: DateTime
+  p10: Float
+  p50: Float
+  p90: Float
+  secondsBelow: Float!
+  secondsAbove: Float!
+  validSamples: Int!
+  badSamples: Int!
+}
+
+"Headline perfusion quality for a case (full-flow bypass)."
+type CaseQuality {
+  do2iNadir: Float
+  secondsDo2iBelowTarget: Float
+  pctTimeDo2iBelowTarget: Float
+  svo2Nadir: Float
+  secondsMapBelow50: Float
+  maxArterialTemp: Float
+  secondsArterialAbove37: Float
+  hctNadir: Float
+  emboliCount: Int!
+  alarmCount: Int!
+  artifactPct: Float
+}
+
+type Episode { start: DateTime!, end: DateTime!, seconds: Int!, extreme: Float! }
+
+type Series {
+  resolution: Resolution!
+  stepSeconds: Int!
+  from: DateTime!
+  to: DateTime!
+  channels: [ChannelSeries!]!
+}
+type ChannelSeries { channel: Channel!, points: [SeriesPoint!]! }
+"avg/min/max are null where there was no valid data (a gap, not a zero)."
+type SeriesPoint { t: DateTime!, avg: Float, min: Float, max: Float }
+
+type Channel {
+  id: ID!
+  code: String!
+  name: String!
+  unit: String!
+  kind: String!
+  formula: String
+  lowLimit: Float
+  highLimit: Float
+  decimals: Int!
+  sampleRateHz: Float!
+}
+
+type RecordingSession {
+  id: ID!
+  device: Device!
+  startedAt: DateTime!
+  endedAt: DateTime!
+  softwareVersion: String!
+  clockOffsetMs: Int!
+  gateway: String!
+  maintenanceOk: Boolean
+  maintenanceNote: String
+}
+
+type Alarm {
+  ts: DateTime!
+  channel: Channel!
+  limitKind: String!
+  limitValue: Float!
+  value: Float!
+  ackedAt: DateTime
+  ackSeconds: Float
+}
+type SettingChange { ts: DateTime!, parameter: String!, oldValue: Float, newValue: Float! }
+type EmboliSummary { count: Int!, totalVolumeNl: Float!, byLine: [EmboliLine!]! }
+type EmboliLine { line: String!, count: Int!, volumeNl: Float! }
+type DisposableUse { product: String!, kind: String!, lot: String!, expiresOn: String! }
+
+# ------------------------------------------------------------------ facilities and devices
+
+type Facility { id: ID!, name: String!, city: String!, state: String!, healthSystem: String!, locations: [Location!]! }
+type Location { id: ID!, name: String!, kind: String!, path: String!, depth: Int!, parentId: ID, rooms: [Room!]! }
+type Room { id: ID!, name: String!, kind: String!, devices: [Device!]! }
+
+type Device {
+  id: ID!
+  assetTag: String!
+  serial: String!
+  model: String!
+  manufacturer: String!
+  type: String!
+  status: String!
+  installedOn: String!
+  facility: String!
+  location: String
+  room: String
+  runningHours: Float!
+  cases: Int!
+  lastUsedAt: DateTime
+  maintenanceStatus: MaintenanceStatus!
+  modules: [DeviceModule!]!
+  software: [SoftwareInstall!]!
+  assignments: [Assignment!]!
+  maintenance: [MaintenanceItem!]!
+  workOrders(limit: Int = 20): [WorkOrder!]!
+}
+type DeviceModule { position: String!, model: String!, type: String!, serial: String!, firmware: String!, channels: [String!]! }
+type SoftwareInstall { version: String!, installedAt: DateTime!, installedBy: String! }
+type Assignment { room: String!, location: String!, from: DateTime!, to: DateTime }
+
+type MaintenanceItem {
+  device: Device!
+  plan: String!
+  regulatory: Boolean!
+  intervalDays: Int
+  intervalHours: Int
+  lastDoneAt: DateTime
+  dueAt: DateTime
+  hoursSinceLast: Float
+  status: MaintenanceStatus!
+}
+type WorkOrder {
+  id: ID!
+  kind: String!
+  plan: String
+  openedAt: DateTime!
+  completedAt: DateTime
+  technician: String
+  result: String
+  notes: String
+  tasks: [WorkOrderTask!]!
+}
+type WorkOrderTask { description: String!, spec: String, measured: String, passed: Boolean! }
+
+# ------------------------------------------------------------------ admin
+
+type DataVolume { partitions: [Partition!]!, tables: [TableSize!]!, dirtyBuckets: Int! }
+type Partition { name: String!, range: String!, rows: Float!, bytes: Float! }
+type TableSize { name: String!, rows: Float!, bytes: Float! }

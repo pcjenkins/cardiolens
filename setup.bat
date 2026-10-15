@@ -1,5 +1,6 @@
 @echo off
-REM One-time setup: installs packages into this folder, creates the SQLite database, builds the app.
+REM One-time setup: installs packages (web + API), builds the PostgreSQL database, builds the app.
+REM Needs PostgreSQL running with a "cardiolens" role and database - see README.
 cd /d "%~dp0"
 where node >nul 2>nul
 if errorlevel 1 (
@@ -10,11 +11,11 @@ if errorlevel 1 (
 echo Node version:
 node -v
 echo.
-echo [1/3] Installing packages into .\node_modules ...
+echo [1/3] Installing packages (web and API) ...
 call npm install || goto :fail
 echo.
-echo [2/3] Creating database .\data\cardiolens.db ...
-call npm run seed || goto :fail
+echo [2/3] Building the PostgreSQL database (about 2 minutes) ...
+call npm run db:reset || goto :fail
 echo.
 echo [3/3] Building the app ...
 call release.bat || goto :fail

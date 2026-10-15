@@ -1,19 +1,26 @@
 {
   "name": "cardiolens",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
+    "postinstall": "npm --prefix api install --no-audit --no-fund",
     "dev": "next dev",
+    "api": "npm --prefix api run dev",
+    "stack": "concurrently -k -n api,web -c blue,green \"npm:api\" \"npm:dev\"",
+    "db:reset": "npm --prefix api run db:reset",
+    "db:restore": "npm --prefix api run db:restore",
+    "env:init": "npm --prefix api run env:init",
     "prebuild": "npm run test:report",
     "build": "next build",
     "start": "next start",
-    "seed": "node scripts/seed.mjs",
+    "start:stack": "concurrently -k -n api,web -c blue,green \"npm --prefix api start\" \"npm:start\"",
     "test": "jest",
-    "test:report": "jest --json --outputFile=data/release/test-results.json --coverage --coverageReporters=json-summary --coverageDirectory=data/release/coverage",	
-    "setup": "npm install && npm run seed && npm run build"
+    "test:api": "npm --prefix api test",
+    "test:all": "npm run test:api && npm test",
+    "test:report": "jest --json --outputFile=data/release/test-results.json --coverage --coverageReporters=json-summary --coverageDirectory=data/release/coverage",
+    "setup": "npm install && npm run db:reset && npm run build"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
     "jose": "^6.2.12",
     "next": "^16.3.8",
     "react": "^19.3.0",
@@ -32,7 +39,8 @@
     "@types/react-dom": "^19.3.0",
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "concurrently": "^10.0.6"
   },
   "engines": {
     "node": ">=22.13"

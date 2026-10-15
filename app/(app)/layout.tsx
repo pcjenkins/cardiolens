@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { verifySession } from "@/lib/dal";
 import { logout } from "@/app/login/actions";
 
-
 // Route group "(app)": every page inside shares this authenticated shell. The folder name is not in the URL.
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await verifySession();
@@ -14,7 +13,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <nav>
           <Link href="/dashboard">Analytics</Link>
           <Link href="/cases">Cases</Link>
-	  {session.role === "admin" && <Link href="/admin">Admin</Link>}
+          <Link href="/devices">Devices</Link>
+          {session.role === "admin" && <Link href="/admin">Admin</Link>}
         </nav>
         <div className="user">
           <span>{session.name} · {session.role}</span>
