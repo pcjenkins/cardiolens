@@ -54,7 +54,7 @@ Docker: `docker compose up --build` runs Postgres, the API and the web app, with
 
 ## The data model
 
-`api/db/schema.sql`: 40 tables in six groups (plus the monthly partitions). DBeaver (or any client) will draw the ERD from the live schema.
+`api/db/schema.sql`: 40 tables in six groups (plus the monthly partitions). **[docs/ERD.md](docs/ERD.md)** has the entity-relationship diagrams, an overview plus one per group, generated from the live schema by `npm run db:erd`.
 
 * **Organisation hierarchy:** health system › facility › location › room. `location` references itself, so buildings, floors, suites and units nest to any depth; `v_location_path` walks it with a recursive CTE.
 * **Clinical:** patient › encounter › surgical case, with staff roles, milestone events (CPB on/off, cross-clamp, cardioplegia, rewarm…), point-of-care labs, transfusions and disposables with lot numbers. Body surface area is a generated column.

@@ -9,6 +9,7 @@
     "start": "tsx src/server.ts",
     "db:reset": "tsx scripts/reset.ts",
     "db:restore": "tsx scripts/restore.ts",
+    "db:erd": "tsx scripts/erd.ts",
     "env:init": "tsx scripts/init-env.ts",
     "test": "node --import tsx --test --test-reporter=spec test/*.test.ts",
     "typecheck": "tsc --noEmit"

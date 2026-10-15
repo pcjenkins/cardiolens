@@ -9,6 +9,7 @@
     "stack": "concurrently -k -n api,web -c blue,green \"npm:api\" \"npm:dev\"",
     "db:reset": "npm --prefix api run db:reset",
     "db:restore": "npm --prefix api run db:restore",
+    "db:erd": "npm --prefix api run db:erd",
     "env:init": "npm --prefix api run env:init",
     "prebuild": "npm run test:report",
     "build": "next build",
