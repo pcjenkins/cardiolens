@@ -1,5 +1,5 @@
-// The channel catalogue, shared by the seed (to create the rows) and the simulator (to emit samples).
-// Modelled on what a modern perfusion workstation and a patient monitor report. All 1 Hz.
+// The channel catalog, shared by the seed (to create the rows) and the simulator (to emit samples).
+// Modeled on what a modern perfusion workstation and a patient monitor report. All 1 Hz.
 
 export type ChannelDef = {
   id: number; code: string; name: string; unit: string; kind: "measured" | "device_calculated";

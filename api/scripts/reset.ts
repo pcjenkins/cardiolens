@@ -70,8 +70,8 @@ async function main() {
 
   await client.query("BEGIN");
 
-  // ---------------------------------------------------------------- organisation
-  log("Organisation hierarchy, devices, staff");
+  // ---------------------------------------------------------------- organization
+  log("Organization hierarchy, devices, staff");
   const hs = await id("INSERT INTO health_system (name) VALUES ($1)", [R.HEALTH_SYSTEM]);
   const fac: Record<string, { id: number; ors: number[]; storage: number; workshop: number; icu: number }> = {};
   for (const f of R.FACILITIES) {

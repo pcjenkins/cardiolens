@@ -2,7 +2,7 @@
 -- Everything here is fictitious demo data. Run through `npm run db:reset` (api/scripts/reset.ts).
 --
 -- Layout
---   1. Organisation hierarchy   health_system > facility > location (self-referencing tree) > room
+--   1. Organization hierarchy   health_system > facility > location (self-referencing tree) > room
 --   2. People and clinical       patient > encounter > surgical_case, staff, events, labs, transfusions
 --   3. Devices and provenance    manufacturer > device_model > device > device_module, channels
 --   4. Maintenance               plans, tasks, schedules, work orders, technicians
@@ -11,7 +11,7 @@
 
 CREATE EXTENSION IF NOT EXISTS btree_gist SCHEMA public;   -- lets an exclusion constraint mix "=" and "&&"
 
--- ============================================================ 1. Organisation hierarchy
+-- ============================================================ 1. Organization hierarchy
 
 CREATE TABLE health_system (
   id    int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -211,7 +211,7 @@ CREATE TABLE device_assignment (
 );
 CREATE INDEX ix_assignment_room ON device_assignment USING gist (room_id, during);
 
--- The catalogue of what can be measured.
+-- The catalog of what can be measured.
 CREATE TABLE channel (
   id             smallint PRIMARY KEY,
   code           text NOT NULL UNIQUE,

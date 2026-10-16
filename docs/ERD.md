@@ -60,7 +60,7 @@ erDiagram
 
 ```mermaid
 ---
-title: "Organisation hierarchy: health system > facility > location tree > room"
+title: "Organization hierarchy: health system > facility > location tree > room"
 ---
 erDiagram
   health_system {

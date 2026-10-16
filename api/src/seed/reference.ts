@@ -1,4 +1,4 @@
-// Reference data for the demo. Every organisation, product, person and patient here is invented.
+// Reference data for the demo. Every organization, product, person and patient here is invented.
 
 export const HEALTH_SYSTEM = "Piedmont Valley Health (fictitious)";
 

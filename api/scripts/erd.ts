@@ -61,7 +61,7 @@ function diagram(title: string, members: string[], full: boolean, extraOnly: str
 }
 
 const groups: Record<string, [string, string[], string[]]> = {
-  "1-organisation": ["Organisation hierarchy: health system > facility > location tree > room",
+  "1-organization": ["Organization hierarchy: health system > facility > location tree > room",
     ["health_system", "facility", "location", "room", "device_assignment"], ["device", "surgical_case", "encounter"]],
   "2-clinical": ["Clinical: patient > encounter > case, staff, events, labs, products",
     ["patient", "encounter", "surgical_case", "case_staff", "staff", "case_event", "lab_result", "transfusion", "disposable_use", "disposable_product", "app_user"], ["room", "facility", "manufacturer"]],

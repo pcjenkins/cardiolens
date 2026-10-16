@@ -1,6 +1,6 @@
 "use client";
 
-// Client component: Recharts needs the browser. It receives plain, serialisable series data from the
+// Client component: Recharts needs the browser. It receives plain, serializable series data from the
 // server component; it never fetches anything itself. Zooming just changes the URL, and the server
 // re-renders with finer data (minute aggregates -> raw seconds).
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
