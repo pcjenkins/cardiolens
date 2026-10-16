@@ -48,3 +48,9 @@ it("jumps to a phase window and back to the whole recording", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Whole recording" }));
   expect(push).toHaveBeenLastCalledWith("/cases/7?ch=DO2I%2CMAP", { scroll: false });
 });
+
+it("can hide the channel picker and show only the window picker", () => {
+  render(<SeriesControls channels={channels} selected={["DO2I"]} windows={windows} showChannels={false} />);
+  expect(screen.queryByLabelText("Indexed O2 delivery")).toBeNull();
+  expect(screen.getByRole("button", { name: "Cross-clamp" })).toBeInTheDocument();
+});

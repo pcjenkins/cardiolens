@@ -10,9 +10,11 @@ type Props = {
   selected: string[];
   windows: { phase: string; start: string; end: string }[];
   max?: number;
+  /** The full-record page shows every channel, so it only needs the window picker. */
+  showChannels?: boolean;
 };
 
-export default function SeriesControls({ channels, selected, windows, max = 6 }: Props) {
+export default function SeriesControls({ channels, selected, windows, max = 6, showChannels = true }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -33,7 +35,7 @@ export default function SeriesControls({ channels, selected, windows, max = 6 }:
 
   return (
     <div className="series-controls">
-      <fieldset>
+      {showChannels && <fieldset>
         <legend>Channels <span className="hint">(up to {max})</span></legend>
         <div className="chips">
           {channels.map((c) => (
@@ -43,7 +45,7 @@ export default function SeriesControls({ channels, selected, windows, max = 6 }:
             </label>
           ))}
         </div>
-      </fieldset>
+      </fieldset>}
       <fieldset>
         <legend>Window</legend>
         <div className="chips">

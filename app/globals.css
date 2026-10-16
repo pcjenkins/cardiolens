@@ -88,3 +88,12 @@ ul.tree .room-name { color: var(--muted); font-size: 0.85rem; min-width: 7.5rem;
 .device-pill.s-due_soon, .device-pill.s-in_grace { border-color: var(--warn); color: var(--warn); }
 tr.setting td { color: var(--muted); }
 td .wrap, .hint.wrap { white-space: normal; }
+
+/* ---- full record page ---- */
+.record-head h1 { margin-bottom: 0.25rem; }
+.jump { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; font-size: 0.85rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+.record-group { scroll-margin-top: 1rem; }
+.record-group h2 { margin-bottom: 0.1rem; }
+.record-group > .hint { margin: 0 0 0.75rem; }
+.multiple-title .stat { float: right; font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .multiple-title .stat { float: none; display: block; } }

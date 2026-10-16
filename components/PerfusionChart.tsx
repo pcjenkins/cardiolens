@@ -10,9 +10,20 @@ import {
 import { clock, zoomWindow } from "@/lib/format";
 import type { PhaseWindow, Series } from "@/lib/types";
 
-type Props = { series: Series; windows: PhaseWindow[]; recording: { from: string; to: string } };
+type Props = {
+  series: Series;
+  windows: PhaseWindow[];
+  recording: { from: string; to: string };
+  /** Vertical lines at case milestones (on bypass, clamp...). */
+  markers?: { t: number; label: string }[];
+  /** Label the markers on the first chart of this set (one labelled chart per page is enough). */
+  labelMarkers?: boolean;
+  /** A short summary per channel code, shown beside its title. */
+  stats?: Record<string, string>;
+  height?: number;
+};
 
-export default function PerfusionChart({ series, windows, recording }: Props) {
+export default function PerfusionChart({ series, windows, recording, markers = [], labelMarkers = false, stats = {}, height = 130 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -31,7 +42,7 @@ export default function PerfusionChart({ series, windows, recording }: Props) {
 
   return (
     <div className="multiples">
-      {series.channels.map(({ channel, points }) => {
+      {series.channels.map(({ channel, points }, idx) => {
         const data = points.map((p) => ({
           t: Date.parse(p.t), avg: p.avg,
           band: p.min == null || p.max == null ? null : [p.min, p.max],
@@ -42,10 +53,11 @@ export default function PerfusionChart({ series, windows, recording }: Props) {
               <strong>{channel.name}</strong> <span className="muted">{channel.unit}</span>
               {channel.lowLimit != null && <span className="hint"> · target ≥ {channel.lowLimit}</span>}
               {channel.highLimit != null && <span className="hint"> · limit ≤ {channel.highLimit}</span>}
+              {stats[channel.code] && <span className="stat">{stats[channel.code]}</span>}
             </div>
-            <div style={{ width: "100%", height: 130 }}>
+            <div style={{ width: "100%", height }}>
               <ResponsiveContainer>
-                <ComposedChart data={data} syncId="perfusion" syncMethod="value" margin={{ top: 4, right: 12, bottom: 0, left: 0 }}
+                <ComposedChart data={data} syncId="perfusion" syncMethod="value" margin={{ top: labelMarkers && idx === 0 && markers.length ? 16 : 4, right: 12, bottom: 0, left: 0 }}
                   onClick={(s) => {
                     // Recharts 3 reports the hovered point as a label or an index depending on the axis type
                     const t = Number(s?.activeLabel ?? data[Number(s?.activeTooltipIndex)]?.t);
@@ -57,6 +69,13 @@ export default function PerfusionChart({ series, windows, recording }: Props) {
                     tick={{ fill: "var(--muted)", fontSize: 11 }} minTickGap={40} />
                   <YAxis domain={["auto", "auto"]} width={44} tick={{ fill: "var(--muted)", fontSize: 11 }} allowDecimals={channel.decimals > 0} />
                   {clampWindow && <ReferenceArea x1={Date.parse(clampWindow.start)} x2={Date.parse(clampWindow.end)} fill="var(--chart-3)" fillOpacity={0.08} ifOverflow="hidden" />}
+                  {markers.filter((m) => m.t >= from && m.t <= to).sort((a, b) => a.t - b.t).map((m, k) => (
+                    // labels alternate above / just inside the plot so close milestones don't overprint
+                    <ReferenceLine key={m.label + m.t} x={m.t} stroke="var(--muted)" strokeOpacity={0.5}
+                      label={labelMarkers && idx === 0
+                        ? { value: m.label, position: k % 2 ? "insideTopLeft" : "top", fill: "var(--muted)", fontSize: 10 }
+                        : undefined} />
+                  ))}
                   {channel.lowLimit != null && <ReferenceLine y={channel.lowLimit} stroke="var(--danger)" strokeDasharray="4 4" ifOverflow="extendDomain" />}
                   {channel.highLimit != null && <ReferenceLine y={channel.highLimit} stroke="var(--danger)" strokeDasharray="4 4" ifOverflow="extendDomain" />}
                   <Tooltip

@@ -8,6 +8,7 @@ Everything in it is made up: the hospitals, staff, patients, devices and data. N
 
 * Logs you in and shows a dashboard of bypass times, with a simple trend line and outlier cases.
 * Shows each case's perfusion record as charts. Click a chart to zoom from one-minute averages down to the raw one-second readings.
+* A **full record** page per case plots all 22 readings (gases, oxygen delivery, blood, flow, pressures, temperatures, vital signs) from start to finish on one scrollable page, with the surgery milestones marked.
 * Tracks devices: where each machine is, its maintenance schedule, and whether its maintenance was current when it recorded a case.
 * Answers a few report-style questions, such as "which cases used this disposable lot?"
 

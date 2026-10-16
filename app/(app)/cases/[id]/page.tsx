@@ -93,6 +93,7 @@ export default async function CaseDetail({ params, searchParams }: {
             <p className="muted">{c.caseDate} · {c.facility} · {c.locationPath} / {c.room}</p>
           </div>
           <span className={`badge ${captured ? "ok" : "muted-badge"}`}>{captured ? "Per-second capture" : "Legacy import"}</span>
+          {captured && <Link className="button-link" href={`/cases/${c.id}/record`}>Full record</Link>}
           {captured && <a className="button-link" href={`/cases/${c.id}/report`}>Report JSON</a>}
         </div>
         <dl className="detail cols">
