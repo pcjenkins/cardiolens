@@ -56,7 +56,7 @@ erDiagram
   channel ||..o{ agg_minute : "channel_id"
 ```
 
-## Organisation
+## Organization
 
 ```mermaid
 ---
